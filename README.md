@@ -148,7 +148,7 @@ node bin/ghmetrics.js summary -u <username> --since 2024-01-01 --export metrics.
 - **Repo Breakdown**: Contributions grouped by repository
 - **Highlighting**: PRs with most review feedback are highlighted
 - **Direct Links**: Clickable URLs to each PR/issue
-- **Export**: JSON and CSV export (6 files for detailed breakdown)
+- **Export**: JSON and CSV export (single file with all sections)
 
 ## License
 

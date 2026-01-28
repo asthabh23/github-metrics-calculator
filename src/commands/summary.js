@@ -16,11 +16,11 @@ import chalk from 'chalk';
 import Table from 'cli-table3';
 
 /**
- * Export data to CSV files
+ * Export all data to a single CSV file with sections
  */
-function exportToCSV(data, baseFilename) {
-  // Remove .csv extension if provided
-  const baseName = baseFilename.replace(/\.csv$/, '');
+function exportToCSV(data, filename) {
+  const rows = [];
+  const toRow = (cells) => cells.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(',');
 
   // Calculate percentages
   const totalPRs = data.summary.totalPRs || 1;
@@ -28,41 +28,36 @@ function exportToCSV(data, baseFilename) {
   const openPRPct = ((data.summary.openPRs / totalPRs) * 100).toFixed(1);
   const closedPRPct = ((data.summary.closedPRs / totalPRs) * 100).toFixed(1);
 
-  // Summary CSV
-  const summaryRows = [
-    ['Metric', 'Value', 'Percentage'],
-    ['User', data.user, ''],
-    ['Period', `${data.dateRange.since || 'all time'} to ${data.dateRange.until || 'now'}`, ''],
-    ['Organization Filter', data.orgFilter || 'None', ''],
-    ['Total PRs', data.summary.totalPRs, '100%'],
-    ['Merged PRs', data.summary.mergedPRs, `${mergedPct}%`],
-    ['Open PRs', data.summary.openPRs, `${openPRPct}%`],
-    ['Closed PRs (not merged)', data.summary.closedPRs, `${closedPRPct}%`],
-    ['Repos Contributed', data.summary.reposContributed, ''],
-    ['Total Comments', data.summary.totalComments, ''],
-    ['Avg Comments/PR', data.summary.avgCommentsPerPR, ''],
-    ['Total Changes Requested', data.summary.totalChangesRequested, ''],
-    ['Avg Changes Requested/PR', data.summary.avgChangesRequestedPerPR, ''],
-    ['Avg Time to Merge (days)', data.summary.avgTimeToMerge, ''],
-    ['', '', ''],
-    ['ISSUES CREATED BY USER', '', ''],
-    ['Total Issues Created', data.summary.totalIssuesCreated, ''],
-    ['Open Issues Created', data.summary.openIssuesCreated, ''],
-    ['Closed Issues Created', data.summary.closedIssuesCreated, ''],
-    ['', '', ''],
-    ['ISSUES ASSIGNED TO USER', '', ''],
-    ['Total Issues Assigned', data.summary.totalIssuesAssigned, ''],
-    ['Open Issues Assigned', data.summary.openIssuesAssigned, ''],
-    ['Closed Issues Assigned', data.summary.closedIssuesAssigned, ''],
-    ['', '', ''],
-    ['PRS REVIEWED BY USER', '', ''],
-    ['Total PRs Reviewed', data.summary.totalPRsReviewed, ''],
-    ['AI-Assisted PRs', data.summary.aiAssistedPRs, `${data.summary.aiAssistedPercentage}%`],
-    ['', '', ''],
-    ['CODE QUALITY METRICS', '', ''],
-  ];
+  // === SUMMARY SECTION ===
+  rows.push(toRow(['=== SUMMARY ===', '', '']));
+  rows.push(toRow(['Metric', 'Value', 'Percentage']));
+  rows.push(toRow(['User', data.user, '']));
+  rows.push(toRow(['Period', `${data.dateRange.since || 'all time'} to ${data.dateRange.until || 'now'}`, '']));
+  rows.push(toRow(['Organization Filter', data.orgFilter || 'None', '']));
+  rows.push(toRow(['', '', '']));
+  rows.push(toRow(['PRs Raised', data.summary.totalPRs, '100%']));
+  rows.push(toRow(['Merged PRs', data.summary.mergedPRs, `${mergedPct}%`]));
+  rows.push(toRow(['Open PRs', data.summary.openPRs, `${openPRPct}%`]));
+  rows.push(toRow(['Closed PRs (not merged)', data.summary.closedPRs, `${closedPRPct}%`]));
+  rows.push(toRow(['Repos Contributed', data.summary.reposContributed, '']));
+  rows.push(toRow(['Total Comments', data.summary.totalComments, '']));
+  rows.push(toRow(['Avg Comments/PR', data.summary.avgCommentsPerPR, '']));
+  rows.push(toRow(['Total Changes Requested', data.summary.totalChangesRequested, '']));
+  rows.push(toRow(['Avg Changes Requested/PR', data.summary.avgChangesRequestedPerPR, '']));
+  rows.push(toRow(['Avg Time to Merge (days)', data.summary.avgTimeToMerge, '']));
+  rows.push(toRow(['', '', '']));
+  rows.push(toRow(['Issues Created', data.summary.totalIssuesCreated, '']));
+  rows.push(toRow(['Open Issues Created', data.summary.openIssuesCreated, '']));
+  rows.push(toRow(['Closed Issues Created', data.summary.closedIssuesCreated, '']));
+  rows.push(toRow(['', '', '']));
+  rows.push(toRow(['Issues Assigned', data.summary.totalIssuesAssigned, '']));
+  rows.push(toRow(['Open Issues Assigned', data.summary.openIssuesAssigned, '']));
+  rows.push(toRow(['Closed Issues Assigned', data.summary.closedIssuesAssigned, '']));
+  rows.push(toRow(['', '', '']));
+  rows.push(toRow(['PRs Reviewed', data.summary.totalPRsReviewed, '']));
+  rows.push(toRow(['AI-Assisted PRs', data.summary.aiAssistedPRs, `${data.summary.aiAssistedPercentage}%`]));
 
-  // Add changes requested distribution
+  // Code quality distribution
   const dist = data.summary.changesRequestedDistribution || {};
   const cleanPRs = dist['0'] || 0;
   const minorRevisions = dist['1'] || 0;
@@ -70,123 +65,108 @@ function exportToCSV(data, baseFilename) {
     .filter(([k]) => parseInt(k) >= 2)
     .reduce((sum, [, v]) => sum + v, 0);
 
-  const cleanPctCSV = ((cleanPRs / totalPRs) * 100).toFixed(1);
-  const minorPctCSV = ((minorRevisions / totalPRs) * 100).toFixed(1);
-  const multiplePctCSV = ((multipleRevisions / totalPRs) * 100).toFixed(1);
+  rows.push(toRow(['', '', '']));
+  rows.push(toRow(['CODE QUALITY', '', '']));
+  rows.push(toRow(['Clean PRs (0 changes requested)', cleanPRs, `${((cleanPRs / totalPRs) * 100).toFixed(1)}%`]));
+  rows.push(toRow(['Minor Revisions (1 change)', minorRevisions, `${((minorRevisions / totalPRs) * 100).toFixed(1)}%`]));
+  rows.push(toRow(['Multiple Revisions (2+)', multipleRevisions, `${((multipleRevisions / totalPRs) * 100).toFixed(1)}%`]));
 
-  summaryRows.push(
-    ['Clean PRs (0 changes requested)', cleanPRs, `${cleanPctCSV}%`],
-    ['Minor Revisions (1 change requested)', minorRevisions, `${minorPctCSV}%`],
-    ['Multiple Revisions (2+ changes requested)', multipleRevisions, `${multiplePctCSV}%`],
-  );
-
-  // Detailed breakdown
-  Object.entries(dist)
-    .sort((a, b) => parseInt(a[0]) - parseInt(b[0]))
-    .forEach(([changes, count]) => {
-      const pct = ((count / totalPRs) * 100).toFixed(1);
-      summaryRows.push([`PRs with ${changes} changes requested`, count, `${pct}%`]);
-    });
-
-  // Add AI tools breakdown
+  // AI tools breakdown
   Object.entries(data.summary.aiToolsBreakdown || {}).forEach(([tool, count]) => {
-    summaryRows.push([`AI Tool: ${tool}`, count]);
+    rows.push(toRow([`AI Tool: ${tool}`, count, '']));
   });
 
-  const summaryCSV = summaryRows.map(row => row.map(cell => `"${cell}"`).join(',')).join('\n');
-  fs.writeFileSync(`${baseName}-summary.csv`, summaryCSV);
+  // === PULL REQUESTS RAISED ===
+  rows.push(toRow(['', '', '', '', '', '', '', '', '', '', '', '']));
+  rows.push(toRow(['=== PULL REQUESTS RAISED ===', '', '', '', '', '', '', '', '', '', '', '']));
+  rows.push(toRow(['PR Number', 'Repository', 'Title', 'Status', 'Merged', 'Comments', 'Changes Requested', 'Time to Merge (days)', 'AI Assisted', 'AI Tools', 'Created At', 'URL']));
+  data.prs.forEach(pr => {
+    rows.push(toRow([
+      pr.number,
+      pr.repo,
+      pr.title,
+      pr.state,
+      pr.merged ? 'Yes' : 'No',
+      pr.comments,
+      pr.changesRequested,
+      pr.timeToMerge || '',
+      pr.aiAssisted ? 'Yes' : 'No',
+      (pr.aiTools || []).join('; '),
+      pr.createdAt,
+      pr.url,
+    ]));
+  });
 
-  // PRs CSV
-  const prHeaders = ['PR Number', 'Repository', 'Title', 'Status', 'Merged', 'Comments', 'Changes Requested', 'Time to Merge (days)', 'AI Assisted', 'AI Tools', 'Created At', 'URL'];
-  const prRows = data.prs.map(pr => [
-    pr.number,
-    pr.repo,
-    pr.title.replace(/"/g, '""'),
-    pr.state,
-    pr.merged ? 'Yes' : 'No',
-    pr.comments,
-    pr.changesRequested,
-    pr.timeToMerge || '',
-    pr.aiAssisted ? 'Yes' : 'No',
-    (pr.aiTools || []).join('; '),
-    pr.createdAt,
-    pr.url,
-  ]);
+  // === ISSUES CREATED ===
+  rows.push(toRow(['', '', '', '', '', '', '', '']));
+  rows.push(toRow(['=== ISSUES CREATED ===', '', '', '', '', '', '', '']));
+  rows.push(toRow(['Issue Number', 'Repository', 'Title', 'Status', 'Comments', 'Created At', 'Closed At', 'URL']));
+  (data.issuesCreated || []).forEach(issue => {
+    rows.push(toRow([
+      issue.number,
+      issue.repo,
+      issue.title,
+      issue.state,
+      issue.comments,
+      issue.createdAt,
+      issue.closedAt || '',
+      issue.url,
+    ]));
+  });
 
-  const prCSV = [prHeaders, ...prRows].map(row => row.map(cell => `"${cell}"`).join(',')).join('\n');
-  fs.writeFileSync(`${baseName}-prs.csv`, prCSV);
+  // === ISSUES ASSIGNED ===
+  rows.push(toRow(['', '', '', '', '', '', '', '']));
+  rows.push(toRow(['=== ISSUES ASSIGNED ===', '', '', '', '', '', '', '']));
+  rows.push(toRow(['Issue Number', 'Repository', 'Title', 'Status', 'Comments', 'Created At', 'Closed At', 'URL']));
+  (data.issuesAssigned || []).forEach(issue => {
+    rows.push(toRow([
+      issue.number,
+      issue.repo,
+      issue.title,
+      issue.state,
+      issue.comments,
+      issue.createdAt,
+      issue.closedAt || '',
+      issue.url,
+    ]));
+  });
 
-  // Issues Created CSV
-  const issueCreatedHeaders = ['Issue Number', 'Repository', 'Title', 'Status', 'Comments', 'Created At', 'Closed At', 'URL', 'Type'];
-  const issueCreatedRows = (data.issuesCreated || []).map(issue => [
-    issue.number,
-    issue.repo,
-    issue.title.replace(/"/g, '""'),
-    issue.state,
-    issue.comments,
-    issue.createdAt,
-    issue.closedAt || '',
-    issue.url,
-    'Created',
-  ]);
+  // === PRS REVIEWED ===
+  rows.push(toRow(['', '', '', '', '', '', '']));
+  rows.push(toRow(['=== PRS REVIEWED ===', '', '', '', '', '', '']));
+  rows.push(toRow(['PR Number', 'Repository', 'Title', 'Status', 'Merged', 'Created At', 'URL']));
+  (data.prsReviewed || []).forEach(pr => {
+    rows.push(toRow([
+      pr.number,
+      pr.repo,
+      pr.title,
+      pr.state,
+      pr.merged ? 'Yes' : 'No',
+      pr.createdAt,
+      pr.url,
+    ]));
+  });
 
-  const issueCreatedCSV = [issueCreatedHeaders, ...issueCreatedRows].map(row => row.map(cell => `"${cell}"`).join(',')).join('\n');
-  fs.writeFileSync(`${baseName}-issues-created.csv`, issueCreatedCSV);
+  // === REPOSITORY BREAKDOWN ===
+  rows.push(toRow(['', '', '', '', '', '']));
+  rows.push(toRow(['=== REPOSITORY BREAKDOWN ===', '', '', '', '', '']));
+  rows.push(toRow(['Repository', 'Total PRs', 'Merged PRs', 'Total Comments', 'Changes Requested', 'Avg Time to Merge (days)']));
+  data.repoBreakdown.forEach(repo => {
+    rows.push(toRow([
+      repo.repo,
+      repo.totalPRs,
+      repo.mergedPRs,
+      repo.totalComments,
+      repo.changesRequested,
+      repo.avgTimeToMerge || '',
+    ]));
+  });
 
-  // Issues Assigned CSV
-  const issueAssignedHeaders = ['Issue Number', 'Repository', 'Title', 'Status', 'Comments', 'Created At', 'Closed At', 'URL', 'Type'];
-  const issueAssignedRows = (data.issuesAssigned || []).map(issue => [
-    issue.number,
-    issue.repo,
-    issue.title.replace(/"/g, '""'),
-    issue.state,
-    issue.comments,
-    issue.createdAt,
-    issue.closedAt || '',
-    issue.url,
-    'Assigned',
-  ]);
+  // Write single file
+  const csvFilename = filename.endsWith('.csv') ? filename : `${filename}.csv`;
+  fs.writeFileSync(csvFilename, rows.join('\n'));
 
-  const issueAssignedCSV = [issueAssignedHeaders, ...issueAssignedRows].map(row => row.map(cell => `"${cell}"`).join(',')).join('\n');
-  fs.writeFileSync(`${baseName}-issues-assigned.csv`, issueAssignedCSV);
-
-  // PRs Reviewed CSV
-  const prsReviewedHeaders = ['PR Number', 'Repository', 'Title', 'Status', 'Merged', 'Created At', 'URL'];
-  const prsReviewedRows = (data.prsReviewed || []).map(pr => [
-    pr.number,
-    pr.repo,
-    pr.title.replace(/"/g, '""'),
-    pr.state,
-    pr.merged ? 'Yes' : 'No',
-    pr.createdAt,
-    pr.url,
-  ]);
-
-  const prsReviewedCSV = [prsReviewedHeaders, ...prsReviewedRows].map(row => row.map(cell => `"${cell}"`).join(',')).join('\n');
-  fs.writeFileSync(`${baseName}-prs-reviewed.csv`, prsReviewedCSV);
-
-  // Repo breakdown CSV
-  const repoHeaders = ['Repository', 'Total PRs', 'Merged PRs', 'Total Comments', 'Changes Requested', 'Avg Time to Merge (days)'];
-  const repoRows = data.repoBreakdown.map(repo => [
-    repo.repo,
-    repo.totalPRs,
-    repo.mergedPRs,
-    repo.totalComments,
-    repo.changesRequested,
-    repo.avgTimeToMerge || '',
-  ]);
-
-  const repoCSV = [repoHeaders, ...repoRows].map(row => row.map(cell => `"${cell}"`).join(',')).join('\n');
-  fs.writeFileSync(`${baseName}-repos.csv`, repoCSV);
-
-  return [
-    `${baseName}-summary.csv`,
-    `${baseName}-prs.csv`,
-    `${baseName}-issues-created.csv`,
-    `${baseName}-issues-assigned.csv`,
-    `${baseName}-prs-reviewed.csv`,
-    `${baseName}-repos.csv`,
-  ];
+  return csvFilename;
 }
 
 /**
@@ -794,9 +774,8 @@ export async function summary(options) {
     if (options.export) {
       const filename = options.export;
       if (filename.endsWith('.csv')) {
-        const files = exportToCSV(result, filename);
-        printSuccess(`Data exported to CSV files:`);
-        files.forEach(f => console.log(`  - ${f}`));
+        const csvFile = exportToCSV(result, filename);
+        printSuccess(`Data exported to: ${csvFile}`);
       } else {
         exportToFile(result, filename.endsWith('.json') ? filename : `${filename}.json`);
       }
