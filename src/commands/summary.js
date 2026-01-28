@@ -9,9 +9,185 @@ import {
   exportToFile,
   printError,
   printInfo,
+  printSuccess,
 } from '../lib/formatters.js';
+import fs from 'fs';
 import chalk from 'chalk';
 import Table from 'cli-table3';
+
+/**
+ * Export data to CSV files
+ */
+function exportToCSV(data, baseFilename) {
+  // Remove .csv extension if provided
+  const baseName = baseFilename.replace(/\.csv$/, '');
+
+  // Calculate percentages
+  const totalPRs = data.summary.totalPRs || 1;
+  const mergedPct = ((data.summary.mergedPRs / totalPRs) * 100).toFixed(1);
+  const openPRPct = ((data.summary.openPRs / totalPRs) * 100).toFixed(1);
+  const closedPRPct = ((data.summary.closedPRs / totalPRs) * 100).toFixed(1);
+
+  // Summary CSV
+  const summaryRows = [
+    ['Metric', 'Value', 'Percentage'],
+    ['User', data.user, ''],
+    ['Period', `${data.dateRange.since || 'all time'} to ${data.dateRange.until || 'now'}`, ''],
+    ['Organization Filter', data.orgFilter || 'None', ''],
+    ['Total PRs', data.summary.totalPRs, '100%'],
+    ['Merged PRs', data.summary.mergedPRs, `${mergedPct}%`],
+    ['Open PRs', data.summary.openPRs, `${openPRPct}%`],
+    ['Closed PRs (not merged)', data.summary.closedPRs, `${closedPRPct}%`],
+    ['Repos Contributed', data.summary.reposContributed, ''],
+    ['Total Comments', data.summary.totalComments, ''],
+    ['Avg Comments/PR', data.summary.avgCommentsPerPR, ''],
+    ['Total Changes Requested', data.summary.totalChangesRequested, ''],
+    ['Avg Changes Requested/PR', data.summary.avgChangesRequestedPerPR, ''],
+    ['Avg Time to Merge (days)', data.summary.avgTimeToMerge, ''],
+    ['', '', ''],
+    ['ISSUES CREATED BY USER', '', ''],
+    ['Total Issues Created', data.summary.totalIssuesCreated, ''],
+    ['Open Issues Created', data.summary.openIssuesCreated, ''],
+    ['Closed Issues Created', data.summary.closedIssuesCreated, ''],
+    ['', '', ''],
+    ['ISSUES ASSIGNED TO USER', '', ''],
+    ['Total Issues Assigned', data.summary.totalIssuesAssigned, ''],
+    ['Open Issues Assigned', data.summary.openIssuesAssigned, ''],
+    ['Closed Issues Assigned', data.summary.closedIssuesAssigned, ''],
+    ['', '', ''],
+    ['PRS REVIEWED BY USER', '', ''],
+    ['Total PRs Reviewed', data.summary.totalPRsReviewed, ''],
+    ['AI-Assisted PRs', data.summary.aiAssistedPRs, `${data.summary.aiAssistedPercentage}%`],
+    ['', '', ''],
+    ['CODE QUALITY METRICS', '', ''],
+  ];
+
+  // Add changes requested distribution
+  const dist = data.summary.changesRequestedDistribution || {};
+  const cleanPRs = dist['0'] || 0;
+  const minorRevisions = dist['1'] || 0;
+  const multipleRevisions = Object.entries(dist)
+    .filter(([k]) => parseInt(k) >= 2)
+    .reduce((sum, [, v]) => sum + v, 0);
+
+  const cleanPctCSV = ((cleanPRs / totalPRs) * 100).toFixed(1);
+  const minorPctCSV = ((minorRevisions / totalPRs) * 100).toFixed(1);
+  const multiplePctCSV = ((multipleRevisions / totalPRs) * 100).toFixed(1);
+
+  summaryRows.push(
+    ['Clean PRs (0 changes requested)', cleanPRs, `${cleanPctCSV}%`],
+    ['Minor Revisions (1 change requested)', minorRevisions, `${minorPctCSV}%`],
+    ['Multiple Revisions (2+ changes requested)', multipleRevisions, `${multiplePctCSV}%`],
+  );
+
+  // Detailed breakdown
+  Object.entries(dist)
+    .sort((a, b) => parseInt(a[0]) - parseInt(b[0]))
+    .forEach(([changes, count]) => {
+      const pct = ((count / totalPRs) * 100).toFixed(1);
+      summaryRows.push([`PRs with ${changes} changes requested`, count, `${pct}%`]);
+    });
+
+  // Add AI tools breakdown
+  Object.entries(data.summary.aiToolsBreakdown || {}).forEach(([tool, count]) => {
+    summaryRows.push([`AI Tool: ${tool}`, count]);
+  });
+
+  const summaryCSV = summaryRows.map(row => row.map(cell => `"${cell}"`).join(',')).join('\n');
+  fs.writeFileSync(`${baseName}-summary.csv`, summaryCSV);
+
+  // PRs CSV
+  const prHeaders = ['PR Number', 'Repository', 'Title', 'Status', 'Merged', 'Comments', 'Changes Requested', 'Time to Merge (days)', 'AI Assisted', 'AI Tools', 'Created At', 'URL'];
+  const prRows = data.prs.map(pr => [
+    pr.number,
+    pr.repo,
+    pr.title.replace(/"/g, '""'),
+    pr.state,
+    pr.merged ? 'Yes' : 'No',
+    pr.comments,
+    pr.changesRequested,
+    pr.timeToMerge || '',
+    pr.aiAssisted ? 'Yes' : 'No',
+    (pr.aiTools || []).join('; '),
+    pr.createdAt,
+    pr.url,
+  ]);
+
+  const prCSV = [prHeaders, ...prRows].map(row => row.map(cell => `"${cell}"`).join(',')).join('\n');
+  fs.writeFileSync(`${baseName}-prs.csv`, prCSV);
+
+  // Issues Created CSV
+  const issueCreatedHeaders = ['Issue Number', 'Repository', 'Title', 'Status', 'Comments', 'Created At', 'Closed At', 'URL', 'Type'];
+  const issueCreatedRows = (data.issuesCreated || []).map(issue => [
+    issue.number,
+    issue.repo,
+    issue.title.replace(/"/g, '""'),
+    issue.state,
+    issue.comments,
+    issue.createdAt,
+    issue.closedAt || '',
+    issue.url,
+    'Created',
+  ]);
+
+  const issueCreatedCSV = [issueCreatedHeaders, ...issueCreatedRows].map(row => row.map(cell => `"${cell}"`).join(',')).join('\n');
+  fs.writeFileSync(`${baseName}-issues-created.csv`, issueCreatedCSV);
+
+  // Issues Assigned CSV
+  const issueAssignedHeaders = ['Issue Number', 'Repository', 'Title', 'Status', 'Comments', 'Created At', 'Closed At', 'URL', 'Type'];
+  const issueAssignedRows = (data.issuesAssigned || []).map(issue => [
+    issue.number,
+    issue.repo,
+    issue.title.replace(/"/g, '""'),
+    issue.state,
+    issue.comments,
+    issue.createdAt,
+    issue.closedAt || '',
+    issue.url,
+    'Assigned',
+  ]);
+
+  const issueAssignedCSV = [issueAssignedHeaders, ...issueAssignedRows].map(row => row.map(cell => `"${cell}"`).join(',')).join('\n');
+  fs.writeFileSync(`${baseName}-issues-assigned.csv`, issueAssignedCSV);
+
+  // PRs Reviewed CSV
+  const prsReviewedHeaders = ['PR Number', 'Repository', 'Title', 'Status', 'Merged', 'Created At', 'URL'];
+  const prsReviewedRows = (data.prsReviewed || []).map(pr => [
+    pr.number,
+    pr.repo,
+    pr.title.replace(/"/g, '""'),
+    pr.state,
+    pr.merged ? 'Yes' : 'No',
+    pr.createdAt,
+    pr.url,
+  ]);
+
+  const prsReviewedCSV = [prsReviewedHeaders, ...prsReviewedRows].map(row => row.map(cell => `"${cell}"`).join(',')).join('\n');
+  fs.writeFileSync(`${baseName}-prs-reviewed.csv`, prsReviewedCSV);
+
+  // Repo breakdown CSV
+  const repoHeaders = ['Repository', 'Total PRs', 'Merged PRs', 'Total Comments', 'Changes Requested', 'Avg Time to Merge (days)'];
+  const repoRows = data.repoBreakdown.map(repo => [
+    repo.repo,
+    repo.totalPRs,
+    repo.mergedPRs,
+    repo.totalComments,
+    repo.changesRequested,
+    repo.avgTimeToMerge || '',
+  ]);
+
+  const repoCSV = [repoHeaders, ...repoRows].map(row => row.map(cell => `"${cell}"`).join(',')).join('\n');
+  fs.writeFileSync(`${baseName}-repos.csv`, repoCSV);
+
+  return [
+    `${baseName}-summary.csv`,
+    `${baseName}-prs.csv`,
+    `${baseName}-issues-created.csv`,
+    `${baseName}-issues-assigned.csv`,
+    `${baseName}-prs-reviewed.csv`,
+    `${baseName}-repos.csv`,
+  ];
+}
 
 /**
  * Format complete summary as table
@@ -38,8 +214,10 @@ function formatSummaryTable(data) {
   });
 
   overviewTable.push(
-    { 'Total PRs': chalk.cyan(data.summary.totalPRs) },
-    { 'Total Issues': chalk.cyan(data.summary.totalIssues) },
+    { 'PRs Raised': chalk.cyan(data.summary.totalPRs) },
+    { 'PRs Reviewed': chalk.cyan(data.summary.totalPRsReviewed) },
+    { 'Issues Created': chalk.cyan(data.summary.totalIssuesCreated) },
+    { 'Issues Assigned': chalk.cyan(data.summary.totalIssuesAssigned) },
     { 'Repos Contributed': chalk.cyan(data.summary.reposContributed) },
   );
   console.log(overviewTable.toString());
@@ -53,10 +231,15 @@ function formatSummaryTable(data) {
     style: { head: ['cyan'], border: ['gray'] },
   });
 
+  const totalPRs = data.summary.totalPRs || 1; // Avoid division by zero
+  const mergedPct = ((data.summary.mergedPRs / totalPRs) * 100).toFixed(1);
+  const openPRPct = ((data.summary.openPRs / totalPRs) * 100).toFixed(1);
+  const closedPRPct = ((data.summary.closedPRs / totalPRs) * 100).toFixed(1);
+
   prStatsTable.push(
-    { 'Merged': chalk.green(data.summary.mergedPRs) },
-    { 'Open': chalk.yellow(data.summary.openPRs) },
-    { 'Closed (not merged)': chalk.red(data.summary.closedPRs) },
+    { 'Merged': chalk.green(`${data.summary.mergedPRs} (${mergedPct}%)`) },
+    { 'Open': chalk.yellow(`${data.summary.openPRs} (${openPRPct}%)`) },
+    { 'Closed (not merged)': chalk.red(`${data.summary.closedPRs} (${closedPRPct}%)`) },
     { 'Total Comments Received': data.summary.totalComments },
     { 'Avg Comments/PR': data.summary.avgCommentsPerPR },
     { 'Total Changes Requested': data.summary.totalChangesRequested },
@@ -65,20 +248,100 @@ function formatSummaryTable(data) {
   );
   console.log(prStatsTable.toString());
 
-  // Issue Stats
-  console.log('\n' + chalk.bold.yellow('  Issue Metrics'));
+  // Code Quality - Changes Requested Distribution
+  console.log('\n' + chalk.bold.yellow('  Code Quality (Changes Requested Distribution)'));
   console.log(chalk.gray('  ' + '─'.repeat(101)));
 
-  const issueStatsTable = new Table({
+  const qualityTable = new Table({
     chars: { 'mid': '', 'left-mid': '', 'mid-mid': '', 'right-mid': '' },
     style: { head: ['cyan'], border: ['gray'] },
   });
 
-  issueStatsTable.push(
-    { 'Open Issues': chalk.yellow(data.summary.openIssues) },
-    { 'Closed Issues': chalk.green(data.summary.closedIssues) },
+  const dist = data.summary.changesRequestedDistribution || {};
+  const cleanPRs = dist['0'] || 0;
+  const minorRevisions = dist['1'] || 0;
+  const multipleRevisions = Object.entries(dist)
+    .filter(([k]) => parseInt(k) >= 2)
+    .reduce((sum, [, v]) => sum + v, 0);
+
+  const cleanPct = ((cleanPRs / totalPRs) * 100).toFixed(1);
+  const minorPct = ((minorRevisions / totalPRs) * 100).toFixed(1);
+  const multiplePct = ((multipleRevisions / totalPRs) * 100).toFixed(1);
+
+  qualityTable.push(
+    { 'Clean PRs (0 changes requested)': chalk.green(`${cleanPRs} (${cleanPct}%)`) },
+    { 'Minor Revisions (1 change requested)': chalk.yellow(`${minorRevisions} (${minorPct}%)`) },
+    { 'Multiple Revisions (2+ changes requested)': chalk.red(`${multipleRevisions} (${multiplePct}%)`) },
   );
-  console.log(issueStatsTable.toString());
+
+  // Show detailed breakdown if there are PRs with many revisions
+  const maxChanges = Math.max(...Object.keys(dist).map(Number), 0);
+  if (maxChanges >= 3) {
+    qualityTable.push({ '': '' });
+    qualityTable.push({ [chalk.gray('Detailed breakdown:')]: '' });
+    Object.entries(dist)
+      .sort((a, b) => parseInt(a[0]) - parseInt(b[0]))
+      .forEach(([changes, count]) => {
+        const pct = ((count / totalPRs) * 100).toFixed(1);
+        qualityTable.push({ [`  ${changes} changes requested`]: `${count} PRs (${pct}%)` });
+      });
+  }
+
+  console.log(qualityTable.toString());
+
+  // Issue Stats - Created by user
+  console.log('\n' + chalk.bold.yellow('  Issues Created (by user)'));
+  console.log(chalk.gray('  ' + '─'.repeat(101)));
+
+  const issueCreatedTable = new Table({
+    chars: { 'mid': '', 'left-mid': '', 'mid-mid': '', 'right-mid': '' },
+    style: { head: ['cyan'], border: ['gray'] },
+  });
+
+  const totalIssuesCreated = data.summary.totalIssuesCreated || 1;
+  const openIssueCreatedPct = ((data.summary.openIssuesCreated / totalIssuesCreated) * 100).toFixed(1);
+  const closedIssueCreatedPct = ((data.summary.closedIssuesCreated / totalIssuesCreated) * 100).toFixed(1);
+
+  issueCreatedTable.push(
+    { 'Total Created': chalk.cyan(data.summary.totalIssuesCreated) },
+    { 'Open': chalk.yellow(`${data.summary.openIssuesCreated} (${openIssueCreatedPct}%)`) },
+    { 'Closed': chalk.green(`${data.summary.closedIssuesCreated} (${closedIssueCreatedPct}%)`) },
+  );
+  console.log(issueCreatedTable.toString());
+
+  // Issue Stats - Assigned to user
+  console.log('\n' + chalk.bold.yellow('  Issues Assigned (to user)'));
+  console.log(chalk.gray('  ' + '─'.repeat(101)));
+
+  const issueAssignedTable = new Table({
+    chars: { 'mid': '', 'left-mid': '', 'mid-mid': '', 'right-mid': '' },
+    style: { head: ['cyan'], border: ['gray'] },
+  });
+
+  const totalIssuesAssigned = data.summary.totalIssuesAssigned || 1;
+  const openIssueAssignedPct = ((data.summary.openIssuesAssigned / totalIssuesAssigned) * 100).toFixed(1);
+  const closedIssueAssignedPct = ((data.summary.closedIssuesAssigned / totalIssuesAssigned) * 100).toFixed(1);
+
+  issueAssignedTable.push(
+    { 'Total Assigned': chalk.cyan(data.summary.totalIssuesAssigned) },
+    { 'Open': chalk.yellow(`${data.summary.openIssuesAssigned} (${openIssueAssignedPct}%)`) },
+    { 'Closed': chalk.green(`${data.summary.closedIssuesAssigned} (${closedIssueAssignedPct}%)`) },
+  );
+  console.log(issueAssignedTable.toString());
+
+  // PRs Reviewed
+  console.log('\n' + chalk.bold.yellow('  PRs Reviewed (by user)'));
+  console.log(chalk.gray('  ' + '─'.repeat(101)));
+
+  const reviewedTable = new Table({
+    chars: { 'mid': '', 'left-mid': '', 'mid-mid': '', 'right-mid': '' },
+    style: { head: ['cyan'], border: ['gray'] },
+  });
+
+  reviewedTable.push(
+    { 'Total PRs Reviewed': chalk.cyan(data.summary.totalPRsReviewed) },
+  );
+  console.log(reviewedTable.toString());
 
   // AI Stats
   console.log('\n' + chalk.bold.yellow('  AI Assistance Detection'));
@@ -167,22 +430,22 @@ function formatSummaryTable(data) {
     console.log(prTable.toString());
   }
 
-  // Issues Table
-  if (data.issues && data.issues.length > 0) {
-    console.log('\n' + chalk.bold.yellow('  Issues'));
+  // Issues Created Table
+  if (data.issuesCreated && data.issuesCreated.length > 0) {
+    console.log('\n' + chalk.bold.yellow('  Issues Created (by user)'));
     console.log(chalk.gray('  ' + '─'.repeat(101)));
 
-    const issueTable = new Table({
+    const issueCreatedTable = new Table({
       head: ['Issue', 'Repository', 'Status', 'Comments', 'Link'],
       colWidths: [8, 25, 10, 10, 55],
       style: { head: ['cyan'], border: ['gray'] },
       wordWrap: true,
     });
 
-    data.issues.forEach(issue => {
+    data.issuesCreated.forEach(issue => {
       const repo = issue.repo.length > 23 ? issue.repo.substring(0, 20) + '...' : issue.repo;
 
-      issueTable.push([
+      issueCreatedTable.push([
         `#${issue.number}`,
         repo,
         issue.state === 'open' ? chalk.yellow('Open') : chalk.green('Closed'),
@@ -191,7 +454,60 @@ function formatSummaryTable(data) {
       ]);
     });
 
-    console.log(issueTable.toString());
+    console.log(issueCreatedTable.toString());
+  }
+
+  // Issues Assigned Table
+  if (data.issuesAssigned && data.issuesAssigned.length > 0) {
+    console.log('\n' + chalk.bold.yellow('  Issues Assigned (to user)'));
+    console.log(chalk.gray('  ' + '─'.repeat(101)));
+
+    const issueAssignedTable = new Table({
+      head: ['Issue', 'Repository', 'Status', 'Comments', 'Link'],
+      colWidths: [8, 25, 10, 10, 55],
+      style: { head: ['cyan'], border: ['gray'] },
+      wordWrap: true,
+    });
+
+    data.issuesAssigned.forEach(issue => {
+      const repo = issue.repo.length > 23 ? issue.repo.substring(0, 20) + '...' : issue.repo;
+
+      issueAssignedTable.push([
+        `#${issue.number}`,
+        repo,
+        issue.state === 'open' ? chalk.yellow('Open') : chalk.green('Closed'),
+        issue.comments,
+        chalk.blue.underline(issue.url),
+      ]);
+    });
+
+    console.log(issueAssignedTable.toString());
+  }
+
+  // PRs Reviewed Table
+  if (data.prsReviewed && data.prsReviewed.length > 0) {
+    console.log('\n' + chalk.bold.yellow('  PRs Reviewed (by user)'));
+    console.log(chalk.gray('  ' + '─'.repeat(101)));
+
+    const prsReviewedTable = new Table({
+      head: ['PR', 'Repository', 'Status', 'Link'],
+      colWidths: [8, 25, 12, 60],
+      style: { head: ['cyan'], border: ['gray'] },
+      wordWrap: true,
+    });
+
+    data.prsReviewed.forEach(pr => {
+      const repo = pr.repo.length > 23 ? pr.repo.substring(0, 20) + '...' : pr.repo;
+
+      prsReviewedTable.push([
+        `#${pr.number}`,
+        repo,
+        pr.merged ? chalk.green('Merged') : pr.state === 'open' ? chalk.yellow('Open') : chalk.gray('Closed'),
+        chalk.blue.underline(pr.url),
+      ]);
+    });
+
+    console.log(prsReviewedTable.toString());
   }
 
   console.log('\n' + chalk.bold.blue('═'.repeat(105)));
@@ -210,8 +526,8 @@ export async function summary(options) {
     const orgFilter = options.org ? ` in org(s): ${options.org}` : '';
     printInfo(`Fetching all metrics for ${options.user}${orgFilter}...`);
 
-    // Fetch PRs and issues in parallel
-    const [prs, issues] = await Promise.all([
+    // Fetch PRs, issues, assigned issues, and reviewed PRs in parallel
+    const [prs, issuesCreated, issuesAssigned, prsReviewed] = await Promise.all([
       client.fetchUserPRsAcrossRepos(options.user, {
         since: options.since,
         until: options.until,
@@ -222,14 +538,24 @@ export async function summary(options) {
         until: options.until,
         org: options.org,
       }),
+      client.fetchAssignedIssues(options.user, {
+        since: options.since,
+        until: options.until,
+        org: options.org,
+      }),
+      client.fetchReviewRequestedPRs(options.user, {
+        since: options.since,
+        until: options.until,
+        org: options.org,
+      }),
     ]);
 
-    if (prs.length === 0 && issues.length === 0) {
+    if (prs.length === 0 && issuesCreated.length === 0 && issuesAssigned.length === 0) {
       printInfo(`No PRs or issues found for user ${options.user}`);
       return;
     }
 
-    printInfo(`Found ${prs.length} PRs and ${issues.length} issues. Fetching details...`);
+    printInfo(`Found ${prs.length} PRs raised, ${issuesCreated.length} issues created, ${issuesAssigned.length} issues assigned, ${prsReviewed.length} PRs reviewed. Fetching details...`);
 
     // Process PRs
     const prDetails = [];
@@ -317,11 +643,11 @@ export async function summary(options) {
     }
     console.log();
 
-    // Process issues
-    const openIssues = issues.filter(i => i.state === 'open');
-    const closedIssues = issues.filter(i => i.state === 'closed');
+    // Process issues created by user
+    const openIssuesCreated = issuesCreated.filter(i => i.state === 'open');
+    const closedIssuesCreated = issuesCreated.filter(i => i.state === 'closed');
 
-    const issueDetails = issues.map(issue => {
+    const issueCreatedDetails = issuesCreated.map(issue => {
       const urlParts = issue.repository_url.split('/');
       const owner = urlParts[urlParts.length - 2];
       const repo = urlParts[urlParts.length - 1];
@@ -334,6 +660,44 @@ export async function summary(options) {
         createdAt: issue.created_at,
         closedAt: issue.closed_at,
         url: issue.html_url,
+        type: 'created',
+      };
+    });
+
+    // Process issues assigned to user
+    const openIssuesAssigned = issuesAssigned.filter(i => i.state === 'open');
+    const closedIssuesAssigned = issuesAssigned.filter(i => i.state === 'closed');
+
+    const issueAssignedDetails = issuesAssigned.map(issue => {
+      const urlParts = issue.repository_url.split('/');
+      const owner = urlParts[urlParts.length - 2];
+      const repo = urlParts[urlParts.length - 1];
+      return {
+        number: issue.number,
+        title: issue.title,
+        repo: `${owner}/${repo}`,
+        state: issue.state,
+        comments: issue.comments || 0,
+        createdAt: issue.created_at,
+        closedAt: issue.closed_at,
+        url: issue.html_url,
+        type: 'assigned',
+      };
+    });
+
+    // Process PRs reviewed by user
+    const prsReviewedDetails = prsReviewed.map(pr => {
+      const urlParts = pr.repository_url.split('/');
+      const owner = urlParts[urlParts.length - 2];
+      const repo = urlParts[urlParts.length - 1];
+      return {
+        number: pr.number,
+        title: pr.title,
+        repo: `${owner}/${repo}`,
+        state: pr.state,
+        merged: !!pr.pull_request?.merged_at,
+        createdAt: pr.created_at,
+        url: pr.html_url,
       };
     });
 
@@ -357,6 +721,13 @@ export async function summary(options) {
       pr.aiTools.forEach(tool => {
         aiToolsCount[tool] = (aiToolsCount[tool] || 0) + 1;
       });
+    });
+
+    // Changes requested distribution (code quality metric)
+    const changesRequestedDistribution = {};
+    prDetails.forEach(pr => {
+      const changes = pr.changesRequested;
+      changesRequestedDistribution[changes] = (changesRequestedDistribution[changes] || 0) + 1;
     });
 
     // Repo breakdown
@@ -391,13 +762,23 @@ export async function summary(options) {
         aiAssistedPRs: aiAssistedPRs.length,
         aiAssistedPercentage: prDetails.length > 0 ? Number(((aiAssistedPRs.length / prDetails.length) * 100).toFixed(1)) : 0,
         aiToolsBreakdown: aiToolsCount,
-        totalIssues: issues.length,
-        openIssues: openIssues.length,
-        closedIssues: closedIssues.length,
+        changesRequestedDistribution,
+        // Issues created by user
+        totalIssuesCreated: issuesCreated.length,
+        openIssuesCreated: openIssuesCreated.length,
+        closedIssuesCreated: closedIssuesCreated.length,
+        // Issues assigned to user
+        totalIssuesAssigned: issuesAssigned.length,
+        openIssuesAssigned: openIssuesAssigned.length,
+        closedIssuesAssigned: closedIssuesAssigned.length,
+        // PRs reviewed by user
+        totalPRsReviewed: prsReviewed.length,
       },
       repoBreakdown,
       prs: prDetails,
-      issues: issueDetails,
+      issuesCreated: issueCreatedDetails,
+      issuesAssigned: issueAssignedDetails,
+      prsReviewed: prsReviewedDetails,
     };
 
     // Output
@@ -409,8 +790,16 @@ export async function summary(options) {
         formatSummaryTable(result);
     }
 
+    // Export
     if (options.export) {
-      exportToFile(result, options.export);
+      const filename = options.export;
+      if (filename.endsWith('.csv')) {
+        const files = exportToCSV(result, filename);
+        printSuccess(`Data exported to CSV files:`);
+        files.forEach(f => console.log(`  - ${f}`));
+      } else {
+        exportToFile(result, filename.endsWith('.json') ? filename : `${filename}.json`);
+      }
     }
 
   } catch (error) {

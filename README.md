@@ -46,8 +46,10 @@ node bin/ghmetrics.js summary -u <username> --since 2024-01-01 --export metrics.
 
   Overview
   ─────────────────────────────────────────────────────────────────────────────────────────────────────────
-  Total PRs: 45
-  Total Issues: 12
+  PRs Raised: 45
+  PRs Reviewed: 32
+  Issues Created: 12
+  Issues Assigned: 25
   Repos Contributed: 8
 
   Pull Request Metrics
@@ -61,10 +63,21 @@ node bin/ghmetrics.js summary -u <username> --since 2024-01-01 --export metrics.
   Avg Changes Requested/PR: 0.62
   Avg Time to Merge: 1.8 days
 
-  Issue Metrics
+  Issues Created (by user)
   ─────────────────────────────────────────────────────────────────────────────────────────────────────────
-  Open Issues: 3
-  Closed Issues: 9
+  Total Created: 12
+  Open: 3
+  Closed: 9
+
+  Issues Assigned (to user)
+  ─────────────────────────────────────────────────────────────────────────────────────────────────────────
+  Total Assigned: 25
+  Open: 8
+  Closed: 17
+
+  PRs Reviewed (by user)
+  ─────────────────────────────────────────────────────────────────────────────────────────────────────────
+  Total PRs Reviewed: 32
 
   AI Assistance Detection
   ─────────────────────────────────────────────────────────────────────────────────────────────────────────
@@ -87,10 +100,20 @@ node bin/ghmetrics.js summary -u <username> --since 2024-01-01 --export metrics.
   #123   | adobe/helix-project     | Merged | 8        | 3       | Yes | https://github.com/...
   #456   | aemdemos/mysite         | Merged | 2        | 0       | -   | https://github.com/...
 
-  Issues
+  Issues Created (by user)
   ─────────────────────────────────────────────────────────────────────────────────────────────────────────
   Issue  | Repository              | Status | Comments | Link
   #789   | adobe/aem-core          | Closed | 5        | https://github.com/...
+
+  Issues Assigned (to user)
+  ─────────────────────────────────────────────────────────────────────────────────────────────────────────
+  Issue  | Repository              | Status | Comments | Link
+  #101   | aemdemos/project        | Open   | 3        | https://github.com/...
+
+  PRs Reviewed (by user)
+  ─────────────────────────────────────────────────────────────────────────────────────────────────────────
+  PR     | Repository              | Status | Link
+  #202   | adobe/helix-project     | Merged | https://github.com/...
 ```
 
 ## Commands
@@ -118,11 +141,14 @@ node bin/ghmetrics.js summary -u <username> --since 2024-01-01 --export metrics.
 ## Features
 
 - **PR Metrics**: Comments, changes requested, time to merge
-- **Issue Tracking**: Opened/closed issues
+- **Issue Tracking**: Issues created by user and issues assigned to user
+- **PR Reviews**: Track PRs where user was a reviewer
 - **AI Detection**: Identifies AI-assisted commits via Co-Authored-By trailers (Claude, Copilot, etc.)
+- **Code Quality**: Changes requested distribution (clean PRs vs. revisions)
 - **Repo Breakdown**: Contributions grouped by repository
 - **Highlighting**: PRs with most review feedback are highlighted
 - **Direct Links**: Clickable URLs to each PR/issue
+- **Export**: JSON and CSV export (6 files for detailed breakdown)
 
 ## License
 

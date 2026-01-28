@@ -254,6 +254,86 @@ export class GitHubClient {
   }
 
   /**
+   * Fetch issues assigned to a user across repositories
+   */
+  async fetchAssignedIssues(username, options = {}) {
+    let query = `assignee:${username} is:issue`;
+
+    if (options.org) {
+      const orgs = options.org.split(',').map(o => o.trim());
+      const orgQuery = orgs.map(o => `org:${o}`).join(' ');
+      query += ` (${orgQuery})`;
+    }
+
+    if (options.since) {
+      query += ` created:>=${options.since}`;
+    }
+    if (options.until) {
+      query += ` created:<=${options.until}`;
+    }
+
+    const issues = [];
+    let page = 1;
+    let hasMore = true;
+
+    while (hasMore && page <= 10) {
+      const response = await this.octokit.search.issuesAndPullRequests({
+        q: query,
+        per_page: 100,
+        page,
+        sort: 'created',
+        order: 'desc',
+      });
+
+      issues.push(...response.data.items);
+      hasMore = response.data.items.length === 100;
+      page++;
+    }
+
+    return issues;
+  }
+
+  /**
+   * Fetch PRs where user was requested as reviewer
+   */
+  async fetchReviewRequestedPRs(username, options = {}) {
+    let query = `reviewed-by:${username} is:pr`;
+
+    if (options.org) {
+      const orgs = options.org.split(',').map(o => o.trim());
+      const orgQuery = orgs.map(o => `org:${o}`).join(' ');
+      query += ` (${orgQuery})`;
+    }
+
+    if (options.since) {
+      query += ` created:>=${options.since}`;
+    }
+    if (options.until) {
+      query += ` created:<=${options.until}`;
+    }
+
+    const prs = [];
+    let page = 1;
+    let hasMore = true;
+
+    while (hasMore && page <= 10) {
+      const response = await this.octokit.search.issuesAndPullRequests({
+        q: query,
+        per_page: 100,
+        page,
+        sort: 'created',
+        order: 'desc',
+      });
+
+      prs.push(...response.data.items);
+      hasMore = response.data.items.length === 100;
+      page++;
+    }
+
+    return prs;
+  }
+
+  /**
    * Fetch all issues by a user across repositories using search API
    */
   async fetchUserIssuesAcrossRepos(username, options = {}) {
