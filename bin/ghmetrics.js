@@ -10,6 +10,7 @@ import dotenv from 'dotenv';
 import { prMetrics } from '../src/commands/pr-metrics.js';
 import { userStats } from '../src/commands/user-stats.js';
 import { repoStats } from '../src/commands/repo-stats.js';
+import { summary } from '../src/commands/summary.js';
 
 // Load environment variables
 dotenv.config();
@@ -20,6 +21,21 @@ program
   .name('ghmetrics')
   .description('GitHub Metrics Calculator - Analyze PR metrics and user contributions')
   .version('1.0.0');
+
+// Summary Command (all-in-one)
+program
+  .command('summary')
+  .alias('all')
+  .description('Get all metrics at once: PRs, issues, AI detection, repo breakdown')
+  .requiredOption('-u, --user <username>', 'GitHub username to analyze')
+  .option('-o, --org <orgs>', 'Filter by organization(s), comma-separated (e.g., adobe,aemdemos)')
+  .option('-t, --token <token>', 'GitHub token (or use GITHUB_TOKEN env var)')
+  .option('--since <date>', 'Filter after this date (YYYY-MM-DD)')
+  .option('--until <date>', 'Filter before this date (YYYY-MM-DD)')
+  .option('--top <number>', 'Show top N repositories', '10')
+  .option('--export <filename>', 'Export results to JSON file')
+  .option('--format <format>', 'Output format: table, json', 'table')
+  .action(summary);
 
 // PR Metrics Command
 program

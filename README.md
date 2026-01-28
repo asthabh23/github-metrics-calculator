@@ -1,11 +1,10 @@
 # GitHub Metrics Calculator
 
-A production-ready CLI tool for analyzing GitHub PR metrics and user contributions.
+A CLI tool for analyzing GitHub contributions - PRs, issues, review feedback, and AI-assisted commits.
 
 ## Installation
 
 ```bash
-cd github-metrics-calculator
 npm install
 ```
 
@@ -20,136 +19,110 @@ cp .env.example .env
 # Edit .env with your token
 ```
 
-## Usage
+## Quick Start
 
-### 1. PR Metrics (User in a Repo)
-
-Analyze PRs raised by a user in a specific repository - comments, changes requested, time to merge.
+**One command to get all metrics:**
 
 ```bash
-# Basic usage
-node bin/ghmetrics.js pr -o <owner> -r <repo> -u <username>
+node bin/ghmetrics.js summary -u <username>
 
-# Examples
-node bin/ghmetrics.js pr -o aemdemos -r fondationsaudemarspiguet -u asthabharga
-node bin/ghmetrics.js pr -o adobe -r helix-project -u john-doe
+# With date range (e.g., 2024)
+node bin/ghmetrics.js summary -u <username> --since 2024-01-01
 
-# With date filter
-node bin/ghmetrics.js pr -o adobe -r helix-project -u john-doe --since 2024-01-01
+# Filter by organization
+node bin/ghmetrics.js summary -u <username> -o adobe,aemdemos --since 2024-01-01
 
 # Export to JSON
-node bin/ghmetrics.js pr -o adobe -r helix-project -u john-doe --export metrics.json
-
-# Output as CSV
-node bin/ghmetrics.js pr -o adobe -r helix-project -u john-doe --format csv
+node bin/ghmetrics.js summary -u <username> --since 2024-01-01 --export metrics.json
 ```
 
-**Output includes:**
-- Total PRs raised
-- Comments per PR (issue + review comments)
-- Changes requested count (review rounds)
-- Approvals received
-- Time to merge
-- Code changes (+/- lines)
+## What You Get
 
-### 2. User Stats (Cross-Repo)
+```
+═════════════════════════════════════════════════════════════════════════════════════════════════════════
+  GitHub Contribution Summary: username
+═════════════════════════════════════════════════════════════════════════════════════════════════════════
+  Period: 2024-01-01 to now
 
-Analyze a user's contributions across all public repositories.
+  Overview
+  ─────────────────────────────────────────────────────────────────────────────────────────────────────────
+  Total PRs: 45
+  Total Issues: 12
+  Repos Contributed: 8
 
-```bash
-# Basic usage
-node bin/ghmetrics.js user -u <username>
+  Pull Request Metrics
+  ─────────────────────────────────────────────────────────────────────────────────────────────────────────
+  Merged: 42
+  Open: 2
+  Closed (not merged): 1
+  Total Comments Received: 156
+  Avg Comments/PR: 3.47
+  Total Changes Requested: 28
+  Avg Changes Requested/PR: 0.62
+  Avg Time to Merge: 1.8 days
 
-# Examples
-node bin/ghmetrics.js user -u asthabharga
-node bin/ghmetrics.js user -u asthabharga --since 2024-01-01 --top 20
+  Issue Metrics
+  ─────────────────────────────────────────────────────────────────────────────────────────────────────────
+  Open Issues: 3
+  Closed Issues: 9
 
-# Export to JSON
-node bin/ghmetrics.js user -u asthabharga --export user-stats.json
+  AI Assistance Detection
+  ─────────────────────────────────────────────────────────────────────────────────────────────────────────
+  AI-Assisted PRs: 15 (33.3%)
+  Human-Only PRs: 30 (66.7%)
+    └─ Claude: 12
+    └─ GitHub Copilot: 3
+  Note: Based on Co-Authored-By commit trailers
+
+  Contribution by Repository
+  ─────────────────────────────────────────────────────────────────────────────────────────────────────────
+  Repository                      | PRs | Merged | Comments | Changes Req | Avg Merge Time
+  adobe/helix-project             | 15  | 14     | 45       | 8           | 2.1 days
+  aemdemos/mysite                 | 12  | 12     | 32       | 5           | 1.2 days
+  ...
+
+  Pull Requests (highlighted: PRs with 2+ changes requested)
+  ─────────────────────────────────────────────────────────────────────────────────────────────────────────
+  PR     | Repository              | Status | Comments | Chg Req | AI  | Link
+  #123   | adobe/helix-project     | Merged | 8        | 3       | Yes | https://github.com/...
+  #456   | aemdemos/mysite         | Merged | 2        | 0       | -   | https://github.com/...
+
+  Issues
+  ─────────────────────────────────────────────────────────────────────────────────────────────────────────
+  Issue  | Repository              | Status | Comments | Link
+  #789   | adobe/aem-core          | Closed | 5        | https://github.com/...
 ```
 
-**Output includes:**
-- Total commits across all repos
-- Lines added/deleted
-- Top repositories by contribution
-- Average commit size
+## Commands
 
-### 3. Repo Stats (All Contributors)
+| Command | Description |
+|---------|-------------|
+| `summary` (or `all`) | **All metrics in one shot** - PRs, issues, AI detection, repo breakdown |
+| `pr` | PR metrics for a single repository |
+| `user` | User PR/issue stats across repos |
+| `repo` | Repository contributor stats |
 
-Analyze all contributors to a repository.
+## Options
 
-```bash
-# Basic usage
-node bin/ghmetrics.js repo -o <owner> -r <repo>
-
-# Examples
-node bin/ghmetrics.js repo -o aemdemos -r fondationsaudemarspiguet
-node bin/ghmetrics.js repo -o adobe -r helix-project --top 20
-```
-
-**Output includes:**
-- Top contributors ranked by commits
-- Lines added/deleted per contributor
-- PRs raised per contributor
-
-## Command Options
-
-### Common Options
-| Option | Description |
-|--------|-------------|
-| `-t, --token <token>` | GitHub token (or use GITHUB_TOKEN env var) |
-| `--since <date>` | Filter after this date (YYYY-MM-DD) |
-| `--until <date>` | Filter before this date (YYYY-MM-DD) |
-| `--export <file>` | Export results to JSON file |
-| `--format <type>` | Output format: table, json, csv |
-
-### PR Command Options
-| Option | Description |
-|--------|-------------|
-| `-o, --owner <owner>` | Repository owner (required) |
-| `-r, --repo <repo>` | Repository name (required) |
-| `-u, --user <username>` | GitHub username (required) |
-| `--state <state>` | PR state: all, open, closed, merged |
-
-### User Command Options
 | Option | Description |
 |--------|-------------|
 | `-u, --user <username>` | GitHub username (required) |
+| `-o, --org <orgs>` | Filter by org(s), comma-separated |
+| `-t, --token <token>` | GitHub token (or use GITHUB_TOKEN env) |
+| `--since <date>` | Filter after date (YYYY-MM-DD) |
+| `--until <date>` | Filter before date (YYYY-MM-DD) |
 | `--top <number>` | Top N repositories (default: 10) |
+| `--export <file>` | Export to JSON file |
+| `--format <type>` | Output: table, json |
 
-### Repo Command Options
-| Option | Description |
-|--------|-------------|
-| `-o, --owner <owner>` | Repository owner (required) |
-| `-r, --repo <repo>` | Repository name (required) |
-| `--top <number>` | Top N contributors (default: 10) |
+## Features
 
-## Global Install (Optional)
-
-```bash
-npm link
-# Now use from anywhere:
-ghmetrics pr -o adobe -r helix-project -u john-doe
-```
-
-## Output Examples
-
-### PR Metrics Output
-```
-══════════════════════════════════════════════════════════════════════════════
-  GitHub PR Metrics Report
-══════════════════════════════════════════════════════════════════════════════
-  User: john-doe
-  Repository: adobe/helix-project
-  Total PRs: 15
-  Merged PRs: 14
-
-  Summary Statistics
-  ──────────────────────────────────────────────────────────────────────────────
-  Avg Comments/PR: 8.73
-  Avg Changes Requested: 1.2
-  Avg Time to Merge: 2.45 days
-```
+- **PR Metrics**: Comments, changes requested, time to merge
+- **Issue Tracking**: Opened/closed issues
+- **AI Detection**: Identifies AI-assisted commits via Co-Authored-By trailers (Claude, Copilot, etc.)
+- **Repo Breakdown**: Contributions grouped by repository
+- **Highlighting**: PRs with most review feedback are highlighted
+- **Direct Links**: Clickable URLs to each PR/issue
 
 ## License
 
