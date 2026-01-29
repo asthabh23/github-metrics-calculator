@@ -270,7 +270,7 @@ function formatSummaryTable(data) {
   console.log(qualityTable.toString());
 
   // Issue Stats - Created by user
-  console.log('\n' + chalk.bold.yellow('  Issues Created (by user)'));
+  console.log('\n' + chalk.bold.yellow(`  Issues Created (by ${data.user})`));
   console.log(chalk.gray('  ' + '─'.repeat(101)));
 
   const issueCreatedTable = new Table({
@@ -290,7 +290,7 @@ function formatSummaryTable(data) {
   console.log(issueCreatedTable.toString());
 
   // Issue Stats - Assigned to user
-  console.log('\n' + chalk.bold.yellow('  Issues Assigned (to user)'));
+  console.log('\n' + chalk.bold.yellow(`  Issues Assigned (to ${data.user})`));
   console.log(chalk.gray('  ' + '─'.repeat(101)));
 
   const issueAssignedTable = new Table({
@@ -310,7 +310,7 @@ function formatSummaryTable(data) {
   console.log(issueAssignedTable.toString());
 
   // PRs Reviewed
-  console.log('\n' + chalk.bold.yellow('  PRs Reviewed (by user)'));
+  console.log('\n' + chalk.bold.yellow(`  PRs Reviewed (by ${data.user})`));
   console.log(chalk.gray('  ' + '─'.repeat(101)));
 
   const reviewedTable = new Table({
@@ -412,7 +412,7 @@ function formatSummaryTable(data) {
 
   // Issues Created Table
   if (data.issuesCreated && data.issuesCreated.length > 0) {
-    console.log('\n' + chalk.bold.yellow('  Issues Created (by user)'));
+    console.log('\n' + chalk.bold.yellow(`  Issues Created (by ${data.user})`));
     console.log(chalk.gray('  ' + '─'.repeat(101)));
 
     const issueCreatedTable = new Table({
@@ -439,7 +439,7 @@ function formatSummaryTable(data) {
 
   // Issues Assigned Table
   if (data.issuesAssigned && data.issuesAssigned.length > 0) {
-    console.log('\n' + chalk.bold.yellow('  Issues Assigned (to user)'));
+    console.log('\n' + chalk.bold.yellow(`  Issues Assigned (to ${data.user})`));
     console.log(chalk.gray('  ' + '─'.repeat(101)));
 
     const issueAssignedTable = new Table({
@@ -466,7 +466,7 @@ function formatSummaryTable(data) {
 
   // PRs Reviewed Table
   if (data.prsReviewed && data.prsReviewed.length > 0) {
-    console.log('\n' + chalk.bold.yellow('  PRs Reviewed (by user)'));
+    console.log('\n' + chalk.bold.yellow(`  PRs Reviewed (by ${data.user})`));
     console.log(chalk.gray('  ' + '─'.repeat(101)));
 
     const prsReviewedTable = new Table({
